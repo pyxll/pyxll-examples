@@ -90,6 +90,8 @@ def _start_timer(timeout=300, interval=0.1):
     As the COM object needed to do that may not exist at startup this
     function retries a number of times.
     """
+    global _timer_id
+
     def make_timer_func():
         start_time = time.time()
         def on_timer(timer_id, unused):
@@ -119,4 +121,4 @@ def _start_timer(timeout=300, interval=0.1):
         return on_timer
 
     # start the timer
-    timer.set_timer(int(interval * 1000), make_timer_func())
+    _timer_id = timer.set_timer(int(interval * 1000), make_timer_func())
