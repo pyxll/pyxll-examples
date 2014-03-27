@@ -104,6 +104,7 @@ def _start_timer(timeout=300, interval=0.1):
                 if time.time() - start_time > timeout:
                     _log.error("Timed out waiting for Excel COM interface to become available.")
                     timer.kill_timer(timer_id)
+                    _timer_id = None
                 return
 
             # Get the Excel application from its window
@@ -118,6 +119,7 @@ def _start_timer(timeout=300, interval=0.1):
                                     (accelerator, macroname), exc_info=True)
             _log.debug("Finished adding shortcuts")
             timer.kill_timer(timer_id)
+            _timer_id = None
         return on_timer
 
     # start the timer
