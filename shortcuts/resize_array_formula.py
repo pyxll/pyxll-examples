@@ -18,6 +18,7 @@ from shortcuts import xl_shortcut
 from pywintypes import com_error
 from shortcuts import xl_shortcut
 from win32com.client import Dispatch
+from win32com.client import constants
 import win32api
 import win32con
 import logging
@@ -49,8 +50,17 @@ def resize_array_formula():
     # (this is an optimization to avoid converting the range into a python list)
     # result = xl.Evaluate(formula)
     result = xl._oleobj_.InvokeTypes(1, 0, 1, (12, 0), ((12, 1),), formula)
-    
-    width, height = 0, len(result)
+
+    try:
+        width, height = 0, len(result)
+    except (AttributeError, TypeError) as e:
+        _log.warn("Not an array function. '%s' returned '%s'" % (formula, result), exc_info=True)
+        result = win32api.MessageBox(None,
+                                     "Formula didn't return an array: %s" % result,
+                                     "Error",
+                                     win32con.MB_OKCANCEL | win32con.MB_ICONERROR)
+        return
+
     if height > 0 and isinstance(result[0], (list, tuple)):
         width = len(result[0])
     width, height = max(width, 1), max(height, 1)
@@ -72,15 +82,17 @@ def resize_array_formula():
                 current_range.FormulaArray = formula
                 return
 
-    # clear the old range
-    current_range.ClearContents()
-
-    # set the formula on the new range
     try:
+        # clear the old range (checking first we can set the formula on the old range
+        # back later if necessary)
+        current_range.FormulaArray = formula
+        current_range.ClearContents()
+
+        # set the formula on the new range
         new_range.FormulaArray = formula
-    except Exception:
+    except Exception as e:
         result = win32api.MessageBox(None,
-                                     "Error resizing range",
+                                     ("Error resizing range: %s\n\n" % e) + formula,
                                      "Error",
                                      win32con.MB_OKCANCEL | win32con.MB_ICONERROR)
         _log.error("Error resizing range", exc_info=True)
