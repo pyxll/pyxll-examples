@@ -8,7 +8,7 @@ For information about pandas see:
 http://pandas.pydata.org/
 
 Including this module in your pyxll config adds the following custom types that can
-be used as return types to your pyxll functions:
+be used as return and argument types to your pyxll functions:
 
 	- dataframe
 	- series
@@ -33,6 +33,10 @@ eg::
 		# function.
 		return df
 
+    @xl_func("dataframe df, string col: float")
+    def sum_column(df, col):
+        return df[col].sum()
+
 In excel (use Ctrl+Shift+Enter to enter an array formula)::
 
 	=make_empty_dataframe(3, 3, 100)
@@ -42,8 +46,12 @@ In excel (use Ctrl+Shift+Enter to enter an array formula)::
 	>> 100	100	100
 	>> 100	100	100
 
+    =sum_column(A1:C4, "A")
+
+    >> 300
 """
-from pyxll import xl_return_type
+from pyxll import xl_return_type, xl_arg_type
+import datetime as dt
 import pandas as pa
 import numpy as np
 
@@ -104,7 +112,14 @@ def _series_to_var(s):
     """return a list of lists that excel can understand"""
     if not isinstance(s, pa.Series):
         return s
+
+    # convert any errors to exceptions so they appear correctly in Excel
     s = s.apply(lambda x: RuntimeError() if isinstance(x, float) and np.isnan(x) else x)
+
+    # add tzinfo to any dates
+    s = s.apply(_fix_tzinfo)
+    s.index = [_fix_tzinfo(x) for x in s.index]
+
     return list(map(list, s.items()))
 
 
@@ -113,5 +128,83 @@ def _series_to_var_transform(s):
     """return a list of lists that excel can understand"""
     if not isinstance(s, pa.Series):
         return s
+
+    # convert any errors to exceptions so they appear correctly in Excel
     s = s.apply(lambda x: RuntimeError() if isinstance(x, float) and np.isnan(x) else x)
+
+    # add tzinfo to any dates
+    s = s.apply(_fix_tzinfo)
+    s.index = [_fix_tzinfo(x) for x in s.index]
+
     return list(zip(*s.items()))
+
+
+@xl_arg_type("dataframe", "var")
+def _var_to_dataframe(x):
+    """return a pandas DataFrame from a list of lists"""
+    columns = x[0]
+    rows = x[1:]
+    return pa.DataFrame(list(rows), columns=columns)
+
+
+@xl_arg_type("series", "var")
+def _var_to_series(s):
+    """return a pandas Series from a list of lists (arranged vertically)"""
+    if not isinstance(s, (list, tuple)):
+        raise TypeError("Expected a list of lists")
+
+    keys, values = [], []
+    for row in s:
+        if not isinstance(row, (list, tuple)):
+            raise TypeError("Expected a list of lists")
+
+        if len(row) < 2:
+            raise RuntimeError("Expected rows of length 2 to convert to a pandas Series")
+        key, value = row[:2]
+        # skip any empty rows
+        if key is None and value is None:
+            continue
+        keys.append(key)
+        values.append(value)
+
+    return pa.Series(values, index=keys)
+
+
+@xl_arg_type("series_t", "var")
+def _var_to_series_t(s):
+    """return a pandas Series from a list of lists (arranged horizontally)"""
+    if not isinstance(s, (list, tuple)):
+        raise TypeError("Expected a list of lists")
+
+    keys, values = [], []
+    for row in zip(*s):
+        if not isinstance(row, (list, tuple)):
+            raise TypeError("Expected a list of lists")
+
+        if len(row) < 2:
+            raise RuntimeError("Expected rows of length 2 to convert to a pandas Series")
+        key, value = row[:2]
+        # skip any empty rows
+        if key is None and value is None:
+            continue
+        keys.append(key)
+        values.append(value)
+
+    return pa.Series(values, index=keys)
+
+
+def _fix_tzinfo(x):
+    """
+    Add timezone information to any native datetimes.
+    pythoncom will fail to convert datetimes to Windows dates without tzinfo.
+    
+    This is useful if using these functions to convert a dataframe to native
+    python types for setting to a Range using COM. If only passing objects
+    to/from python using PyXLL functions then this isn't necessary (but
+    isn't harmful either).
+    """
+    if isinstance(x, dt.date) and not isinstance(x, dt.datetime):
+        x = dt.datetime(year=x.year, month=x.month, day=x.day)
+    if isinstance(x, dt.datetime) and x.tzinfo is None:
+        x = x.replace(tzinfo=dt.timezone.utc)
+    return x
