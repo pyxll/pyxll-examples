@@ -7,48 +7,45 @@ and the chart may be updated with new data by calling the same
 function again.
 """
 from pyxll import xl_func
+from pandas.stats.moments import ewma
 
+# matplotlib imports
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
-import matplotlib as mpl
-import matplotlib.pyplot as plt
 
+# Qt imports
 from PySide import QtCore, QtGui
-import timer
+import timer  # for polling the Qt application
 
 # dict to keep track of any chart windows
 _plot_windows = {}
 
-
-@xl_func("string figname, numpy_column<float> xs, numpy_array<float> ys, var style: string")
-def mpl_line_plot(figname, xs, ys, style=None):
+@xl_func("string figname, numpy_column<float> xs, numpy_column<float> ys, int span: string")
+def mpl_plot_ewma(figname, xs, ys, span):
     """
-    Do a matplotlib line plot in an interactive window.
+    Show a matplotlib line plot of xs vs ys and ewma(ys, span) in an interactive window.
 
     :param figname: name to use for this plot's window
     :param xs: list of x values as a column
-    :param ys: 2d array of y values, arranged as columns
-    :param style: plot style, eg 'fivethirtyeight' (optional)
+    :param ys: list of y values as a column
+    :param span: ewma span
     """
     # Get the Qt app.
     # Note: no need to 'exec' this as it will be polled in the main windows loop.
     app = get_qt_app()
 
-    # if using a style get the current settings and restore them after plotting
-    if style is not None:
-        initial_settings = mpl.rcParams.copy()
-        plt.style.use(style)
+    # create the figure and axes for the plot
+    fig = Figure(figsize=(600, 600), dpi=72, facecolor=(1, 1, 1), edgecolor=(0, 0, 0))
+    ax = fig.add_subplot(111)
 
-    try:
-        # generate the plot
-        fig = Figure(figsize=(600, 600), dpi=72, facecolor=(1, 1, 1), edgecolor=(0, 0, 0))
-        ax = fig.add_subplot(111)
-        ax.plot(xs, ys)
-    finally:
-        # restore any settings after plotting (this is only necessary if styling)
-        if style:
-            mpl.rcParams.update(initial_settings)
+    # calculate the moving average
+    ewma_ys = ewma(ys, span=span)
+
+    # plot the data
+    ax.plot(xs, ys, alpha=0.4, label="Raw")
+    ax.plot(xs, ewma_ys, label="EWMA")
+    ax.legend()
 
     # generate the canvas to display the plot
     canvas = FigureCanvas(fig)
@@ -78,6 +75,7 @@ def mpl_line_plot(figname, xs, ys, style=None):
     window.setLayout(layout)
 
     window.show()
+
     return "[Plotted '%s']" % figname
 
 
