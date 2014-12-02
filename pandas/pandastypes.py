@@ -10,9 +10,9 @@ http://pandas.pydata.org/
 Including this module in your pyxll config adds the following custom types that can
 be used as return and argument types to your pyxll functions:
 
-	- dataframe
-	- series
-	- series_t
+    - dataframe
+    - series
+    - series_t
 
 Dataframes with multi-index indexes or columns will be returned with the columns and
 index values in the resulting array. For normal indexes, the index will only be
@@ -20,18 +20,18 @@ returned as part of the resulting array if the index is named.
 
 eg::
 
-	from pyxll import xl_func
-	import pandas as pa
+    from pyxll import xl_func
+    import pandas as pa
 
-	@xl_func("int rows, int cols, float value: dataframe")
-	def make_empty_dataframe(rows, cols, value):
-		# create an empty dataframe
-		df = pa.DataFrame({chr(c + ord('A')) : value for c in range(cols)}, index=range(rows))
-		
-		# return it. The custom type will convert this to a 2d array that
-		# excel will understand when this function is called as an array
-		# function.
-		return df
+    @xl_func("int rows, int cols, float value: dataframe")
+    def make_empty_dataframe(rows, cols, value):
+        # create an empty dataframe
+        df = pa.DataFrame({chr(c + ord('A')) : value for c in range(cols)}, index=range(rows))
+        
+        # return it. The custom type will convert this to a 2d array that
+        # excel will understand when this function is called as an array
+        # function.
+        return df
 
     @xl_func("dataframe df, string col: float")
     def sum_column(df, col):
@@ -39,12 +39,12 @@ eg::
 
 In excel (use Ctrl+Shift+Enter to enter an array formula)::
 
-	=make_empty_dataframe(3, 3, 100)
-	
-	>>  A	B	C
-	>> 100	100	100
-	>> 100	100	100
-	>> 100	100	100
+    =make_empty_dataframe(3, 3, 100)
+    
+    >>  A    B    C
+    >> 100    100    100
+    >> 100    100    100
+    >> 100    100    100
 
     =sum_column(A1:C4, "A")
 
@@ -54,6 +54,8 @@ from pyxll import xl_return_type, xl_arg_type
 import datetime as dt
 import pandas as pa
 import numpy as np
+import pytz
+
 
 @xl_return_type("dataframe", "var")
 def _dataframe_to_var(df):
@@ -120,7 +122,7 @@ def _series_to_var(s):
     s = s.apply(_fix_tzinfo)
     s.index = [_fix_tzinfo(x) for x in s.index]
 
-    return list(map(list, s.items()))
+    return list(map(list, zip(s.index, s)))
 
 
 @xl_return_type("series_t", "var")
@@ -136,7 +138,7 @@ def _series_to_var_transform(s):
     s = s.apply(_fix_tzinfo)
     s.index = [_fix_tzinfo(x) for x in s.index]
 
-    return list(zip(*s.items()))
+    return list(map(list, zip(*zip(s.index, s))))
 
 
 @xl_arg_type("dataframe", "var")
@@ -206,5 +208,5 @@ def _fix_tzinfo(x):
     if isinstance(x, dt.date) and not isinstance(x, dt.datetime):
         x = dt.datetime(year=x.year, month=x.month, day=x.day)
     if isinstance(x, dt.datetime) and x.tzinfo is None:
-        x = x.replace(tzinfo=dt.timezone.utc)
+        x = x.replace(tzinfo=pytz.utc)
     return x
