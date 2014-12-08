@@ -1,11 +1,11 @@
 """
-Example code showing how to draw a static matplotlib figure
-in Excel.
+Example code showing how to draw a matplotlib figure embedded
+in an Excel worksheet.
 
 Matplotlib is used to plot a chart to an image, which is then
-displayed as an object in Excel.
+displayed as a Picture object in Excel.
 """
-from pyxll import xl_func, xlfCaller, async_call
+from pyxll import xl_func, xlfCaller
 from pandas.stats.moments import ewma
 import os
 
@@ -25,7 +25,7 @@ import win32com.client
          macro=True)
 def mpl_plot_ewma_embedded(figname, xs, ys, span):
     # create the figure and axes for the plot
-    fig = Figure(figsize=(8, 6), dpi=150, facecolor=(1, 1, 1), edgecolor=(0, 0, 0))
+    fig = Figure(figsize=(8, 6), dpi=75, facecolor=(1, 1, 1), edgecolor=(0, 0, 0))
     ax = fig.add_subplot(111)
 
     # calculate the moving average
@@ -48,31 +48,38 @@ def mpl_plot_ewma_embedded(figname, xs, ys, span):
     caller = xlfCaller()
     sheet = xl.Range(caller.address).Worksheet
 
-    # insert the picture
-    picture = sheet.Pictures().Insert(filename)
-
-    # if a picture with the same figname already exists then resize
-    # the new picture and delete the old one
+    # if a picture with the same figname already exists then get the position
+    # and size from the old picture and delete it.
     for old_picture in sheet.Pictures():
         if old_picture.Name == figname:
-            picture.Height = old_picture.Height
-            picture.Width = old_picture.Width
-            picture.Top = old_picture.Top
-            picture.Left = old_picture.Left
+            height = old_picture.Height
+            width = old_picture.Width
+            top = old_picture.Top
+            left = old_picture.Left
             old_picture.Delete()
             break
     else:
         # otherwise place the picture below the calling cell.
         top_left = sheet.Cells(caller.rect.last_row+2, caller.rect.last_col+1)
-        picture.Top = top_left.Top
-        picture.Left = top_left.Left
+        top = top_left.Top
+        left = top_left.Left
+        width, height = fig.bbox.bounds[2:]
+
+    # insert the picture
+    # Ref: http://msdn.microsoft.com/en-us/library/office/ff198302%28v=office.15%29.aspx
+    picture = sheet.Shapes.AddPicture(Filename=filename,
+                                      LinkToFile=0,  # msoFalse
+                                      SaveWithDocument=-1,  # msoTrue
+                                      Left=left,
+                                      Top=top,
+                                      Width=width,
+                                      Height=height)
 
     # set the name of the new picture so we can find it next time
     picture.Name = figname
 
-    # Delete the temporary file after the function has returned and
-    # Excel has finished processing the new Picture object.
-    async_call(os.unlink, filename)
+    # delete the temporary file
+    os.unlink(filename)
 
     return "[Plotted '%s']" % figname
 
