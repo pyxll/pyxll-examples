@@ -57,7 +57,7 @@ def xl_shortcut(shortcut):
                 continue
 
             if key[0] == "f" and key[1:].isdigit():
-                acc += "{F%s}" % key[1:]
+                accelerator += "{F%s}" % key[1:]
                 continue
             
             if len(key) > 1:
