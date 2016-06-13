@@ -21,12 +21,15 @@ import os
 
 _log = logging.getLogger(__name__)
 
-_kernel_running = False
-_ipython_app = None
+if getattr(sys, "_ipython_kernel_running", None) is None:
+    sys._ipython_kernel_running = False
+
+if getattr(sys, "_ipython_app", None) is None:
+    sys._ipython_app = False
 
 
 @xl_menu("IPython")
-def ipython_qtconsole():
+def ipython_qtconsole(*args):
     """
     Launches an IPython Qt console
     """
@@ -84,10 +87,8 @@ def _which(program):
 
 def _start_kernel():
     """starts the ipython kernel and returns the ipython app"""
-    global _ipython_app, _kernel_running
-
-    if _ipython_app and _kernel_running:
-        return _ipython_app
+    if sys._ipython_app and sys._ipython_kernel_running:
+        return sys._ipython_app
 
     import IPython
     from ipykernel.kernelapp import IPKernelApp
@@ -103,23 +104,20 @@ def _start_kernel():
         loop = ioloop.IOLoop.instance()
 
         def poll_ioloop(timer_id, time):
-            global _kernel_running
-
             # if the kernel has been closed then run the event loop until it gets to the
             # stop event added by IPKernelApp.shutdown_request
             if self.kernel.shell.exit_now:
                 _log.debug("IPython kernel stopping (%s)" % self.connection_file)
                 timer.kill_timer(timer_id)
                 loop.start()
-                _kernel_running = False
+                sys._ipython_kernel_running = False
                 return
 
             # otherwise call the event loop but stop immediately if there are no pending events
             loop.add_timeout(0, lambda: loop.add_callback(loop.stop))
             loop.start()
 
-        global _kernel_running
-        _kernel_running = True
+        sys._ipython_kernel_running = True
         timer.set_timer(100, poll_ioloop)
 
     IPKernelApp.start = _IPKernelApp_start
@@ -131,15 +129,15 @@ def _start_kernel():
     # call the API embed function, which will use the monkey-patched method above
     IPython.embed_kernel()
 
-    _ipython_app = IPKernelApp.instance()
+    sys._ipython_app = IPKernelApp.instance()
 
     # patch ipapp so anything else trying to get a terminal app (e.g. ipdb)
     # gets our IPKernalApp.
     from IPython.terminal.ipapp import TerminalIPythonApp
-    TerminalIPythonApp.instance = lambda: _ipython_app
-    __builtins__["get_ipython"] = lambda: _ipython_app.shell
+    TerminalIPythonApp.instance = lambda: sys._ipython_app
+    __builtins__["get_ipython"] = lambda: sys._ipython_app.shell
 
-    return _ipython_app
+    return sys._ipython_app
 
 
 def _launch_qt_console(connection_file):
