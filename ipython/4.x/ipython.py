@@ -4,7 +4,14 @@ Start an IPython Qt console connected to the python session running in Excel.
 This doesn't work with an IPython notebook as it's not possible to connect
 a notebook to an existing kernel, the notebook app always creates its own.
 
-This version is intended to work with IPython versions 1.x only.
+This version is intended to work with IPython versions 4.x only.
+
+This example requires sys.executable to be set, and so it's recommended
+that the following is added to the pyxll.cfg file:
+
+[PYTHON]
+executable = <path to your python installation>/pythonw.exe
+
 """
 from pyxll import xl_menu
 import logging
@@ -30,10 +37,8 @@ def ipython_qtconsole():
     app = _start_kernel()
 
     # start a subprocess to run the Qt console
-    from multiprocessing import Process
-    proc = Process(target=_launch_qt_console, args=[os.getpid(), app.connection_file])
-    proc.daemon = True
-    proc.start()
+    # run jupyter in it's own process
+    _launch_qt_console(app.connection_file)
 
 
 def _fixup_sys_executable():
@@ -137,25 +142,12 @@ def _start_kernel():
     return _ipython_app
 
 
-def _launch_qt_console(ppid, connection_file):
-    """called as a new process"""
-    from IPython.terminal.ipapp import TerminalIPythonApp
-    import threading
-    import psutil
-    import time
-    
-    # start a thread to kill this process when the parent process exits
-    def thread_func():
-        while True:
-            if not psutil.pid_exists(ppid):
-                os._exit(1)
-            time.sleep(5)
-    thread = threading.Thread(target=thread_func)
-    thread.daemon = True
-    thread.start()
-    
-    # start the qtconsole app
-    app = TerminalIPythonApp.instance()
-    app.initialize(["qtconsole", "--existing", connection_file])
-    app.start()
+def _launch_qt_console(connection_file):
+    """Starts the jupyter console"""
+    from subprocess import Popen
 
+    # run jupyter in it's own process
+    cmd = [sys.executable, "-m", "jupyter", "qtconsole", "--existing", connection_file]
+    proc = Popen(cmd)
+    if proc.poll() is not None:
+        raise Exception("Command '%s' failed to start" % " ".join(cmd))
