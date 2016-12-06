@@ -1,4 +1,7 @@
 """
+** For an easier way to do real time data in Excel with Python **
+** see https://www.pyxll.com/docs/userguide/rtd.html **
+
 This example shows how to write an Excel function using PyXLL
 that connect to an RTD server and return values from it.
 
