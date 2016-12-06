@@ -18,7 +18,11 @@ PyXLL is removed from the following registry keys (both 32 and 64 bit):
 import sys, os
 import re
 import logging
-import _winreg as winreg
+
+try:
+    import winreg
+except ImportError:
+    import _winreg as winreg
 
 logging.basicConfig(level=logging.INFO)
 _log = logging.getLogger(__name__)
