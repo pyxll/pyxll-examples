@@ -56,6 +56,11 @@ import pandas as pa
 import numpy as np
 import pytz
 
+try:
+    import pywintypes
+except ImportError:
+    pywintypes = None
+
 
 @xl_return_type("dataframe", "var")
 def _dataframe_to_var(df):
@@ -106,7 +111,7 @@ def _dataframe_to_var(df):
         for ix, row in df.iterrows():
             result.append(list(row))
 
-    return result
+    return _normalize_dates(result)
 
 
 @xl_return_type("series", "var")
@@ -118,11 +123,8 @@ def _series_to_var(s):
     # convert any errors to exceptions so they appear correctly in Excel
     s = s.apply(lambda x: RuntimeError() if isinstance(x, float) and np.isnan(x) else x)
 
-    # add tzinfo to any dates
-    s = s.apply(_fix_tzinfo)
-    s.index = [_fix_tzinfo(x) for x in s.index]
-
-    return list(map(list, zip(s.index, s)))
+    result = list(map(list, zip(s.index, s)))
+    return _normalize_dates(result)
 
 
 @xl_return_type("series_t", "var")
@@ -134,16 +136,17 @@ def _series_to_var_transform(s):
     # convert any errors to exceptions so they appear correctly in Excel
     s = s.apply(lambda x: RuntimeError() if isinstance(x, float) and np.isnan(x) else x)
 
-    # add tzinfo to any dates
-    s = s.apply(_fix_tzinfo)
-    s.index = [_fix_tzinfo(x) for x in s.index]
-
-    return list(map(list, zip(*zip(s.index, s))))
+    result = list(map(list, zip(*zip(s.index, s))))
+    return _normalize_dates(result)
 
 
 @xl_arg_type("dataframe", "var")
 def _var_to_dataframe(x):
     """return a pandas DataFrame from a list of lists"""
+    if not isinstance(x, (list, tuple)):
+        raise TypeError("Expected a list of lists")
+
+    x = _fix_pywintypes(x)
     columns = x[0]
     rows = x[1:]
     return pa.DataFrame(list(rows), columns=columns)
@@ -155,6 +158,7 @@ def _var_to_series(s):
     if not isinstance(s, (list, tuple)):
         raise TypeError("Expected a list of lists")
 
+    s = _fix_pywintypes(s)
     keys, values = [], []
     for row in s:
         if not isinstance(row, (list, tuple)):
@@ -178,6 +182,7 @@ def _var_to_series_t(s):
     if not isinstance(s, (list, tuple)):
         raise TypeError("Expected a list of lists")
 
+    s = _fix_pywintypes(s)
     keys, values = [], []
     for row in zip(*s):
         if not isinstance(row, (list, tuple)):
@@ -195,18 +200,43 @@ def _var_to_series_t(s):
     return pa.Series(values, index=keys)
 
 
-def _fix_tzinfo(x):
+def _normalize_dates(data):
     """
-    Add timezone information to any native datetimes.
+    Ensure all date types returns are standard datetimes with a timezone.
     pythoncom will fail to convert datetimes to Windows dates without tzinfo.
-    
+
     This is useful if using these functions to convert a dataframe to native
     python types for setting to a Range using COM. If only passing objects
     to/from python using PyXLL functions then this isn't necessary (but
     isn't harmful either).
     """
-    if isinstance(x, dt.date) and not isinstance(x, dt.datetime):
-        x = dt.datetime(year=x.year, month=x.month, day=x.day)
-    if isinstance(x, dt.datetime) and x.tzinfo is None:
-        x = x.replace(tzinfo=pytz.utc)
-    return x
+    def normalize_date(x):
+        if isinstance(x, pa.tslib.NaTType):
+            return ValueError()
+        elif isinstance(x, pa.tslib.Timestamp) or isinstance(x, dt.datetime):
+            return dt.datetime(*x.timetuple()[:6], tzinfo=x.tzinfo or pytz.utc)
+        elif isinstance(x, dt.date):
+            return dt.datetime(*x.timetuple()[:3], tzinfo=pytz.utc)
+        return x
+
+    return [[normalize_date(c) for c in r] for r in data]
+
+
+def _fix_pywintypes(data):
+    """
+    Converts any pywintypes.TimeType instances passed in to the
+    conversion functions into datetime types.
+
+    This is useful if using these functions to convert a n Excel Range of
+    of values a pandas type, as pandas will crash if called with the
+    pywintypes.TimeType.
+    """
+    if pywintypes is None:
+        return data
+
+    def fix_pywintypes(c):
+        if isinstance(c, pywintypes.TimeType):
+            return dt.datetime(*c.timetuple()[:6])
+        return c
+
+    return [[fix_pywintypes(c) for c in r] for r in data]
