@@ -33,37 +33,12 @@ def ipython_qtconsole(*args):
     """
     Launches an IPython Qt console
     """
-    # try to set sys.executable if it's not already set
-    _fixup_sys_executable()
-
     # start the IPython kernel
     app = _start_kernel()
 
     # start a subprocess to run the Qt console
     # run jupyter in it's own process
     _launch_qt_console(app.connection_file)
-
-
-def _fixup_sys_executable():
-    """
-    Set sys.executable to the default python executable, if it's not already set.
-    This expects that python will be installed as the default python and pythonw.exe
-    exists on the PATH.
-
-    If you get errors when trying to launch the Qt IPython prompt with multiprocessing
-    check this, and set sys.executable to the absolute location of your installed python.
-    """
-    # don't do anything if it's already set
-    if sys.executable and os.path.basename(sys.executable) in ("python.exe", "pythonw.exe"):
-        return
-
-    executable = _which("pythonw.exe")
-    if not executable:
-        _log.error("Couldn't find pythonw.exe on the PATH. Starting the subprocess will fail.")
-        return
-
-    _log.info("Setting sys.executable to '%s'" % executable)
-    sys.executable = executable
 
 
 def _which(program):
@@ -144,11 +119,18 @@ def _launch_qt_console(connection_file):
     """Starts the jupyter console"""
     from subprocess import Popen
 
-    # find the Scripts path local to python.exe where juypter-qtconsole.exe should be installed
-    path = os.path.join(os.path.dirname(sys.executable), "Scripts")
-    exe = os.path.join(path, "jupyter-qtconsole.exe")
-    if not os.path.exists(exe):
-        raise Exception("jupyter-qtconsole.exe not found in '%s'" % path)
+    # Find juypter-qtconsole.exe in the Scripts path local to python.exe
+    exe = None
+    if sys.executable and os.path.basename(sys.executable) in ("python.exe", "pythonw.exe"):
+        path = os.path.join(os.path.dirname(sys.executable), "Scripts")
+        exe = os.path.join(path, "jupyter-qtconsole.exe")
+
+    # If it wasn't found look for it on the system path
+    if exe is None or not os.path.exists(exe):
+        exe = _which("jupyter-qtconsole.exe")
+
+    if exe is None or not os.path.exists(exe):
+        raise Exception("jupyter-qtconsole.exe not found")
 
     # run jupyter in it's own process
     cmd = [exe, "--existing", connection_file]
