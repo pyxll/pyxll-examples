@@ -1,0 +1,12 @@
+# Requirements for PyXLL IPython itegration.
+# Install using pip or conda:
+#
+# > pip install -r requirements.txt
+# or
+# > conda install --file requirements.txt
+#
+ipython >= 6.0.0
+ipykernel
+jupyter_core
+jupyter_client
+pyqt
