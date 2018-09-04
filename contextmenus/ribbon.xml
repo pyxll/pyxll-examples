@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui">
+    <ribbon>
+        <!-- The ribbon and context menus can be specified in the same file -->
+    </ribbon>
+    <contextMenus>
+        <contextMenu idMso="ContextMenuCell">
+            <button id="MyButton" label="Toggle Case Upper/Lower/Proper"
+                insertBeforeMso="Cut" 
+                onAction="context_menus.toggle_case" 
+                imageMso="HappyFace"/>
+            <menu id="MySubMenu" label="Case Menu" insertBeforeMso="Cut"  >
+                <button id="Menu1Button1" label="Upper Case" 
+                    imageMso="U"
+                    onAction="context_menus.toupper"/>
+                <button id="Menu1Button2" label="Lower Case" 
+                    imageMso="L"
+                    onAction="context_menus.tolower"/>
+                <button id="Menu1Button3" label="Proper Case" 
+                    imageMso="P"
+                    onAction="context_menus.toproper"/>
+            </menu>
+            <dynamicMenu id="MyDynamicMenu"
+                label= "My Dynamic Menu"
+                imageMso="ChangeCase"
+                insertBeforeMso="Cut"
+                getContent="context_menus.dynamic_menu"/>
+            <menuSeparator id="MySeparator" insertBeforeMso="Cut" />
+        </contextMenu>
+   </contextMenus>
+</customUI>
