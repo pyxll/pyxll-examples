@@ -21,7 +21,7 @@ except ImportError:
 
 
 _active_cprofiler = None
-_active_line_profiler
+_active_line_profiler = None
 
 
 @xl_menu("Time to Calculate", menu="Profiling Tools")
