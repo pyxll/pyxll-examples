@@ -26,7 +26,7 @@ _active_line_profiler = None
 
 @xl_menu("Time to Calculate", menu="Profiling Tools")
 def time_calculation():
-    """Recalcules the selected range and times how long it takes"""
+    """Recalculates the selected range and times how long it takes"""
     xl = xl_app()
 
     # switch Excel to manual calculation
