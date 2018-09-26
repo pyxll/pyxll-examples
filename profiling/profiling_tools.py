@@ -7,12 +7,12 @@ https://www.pyxll.com/blog/how-to-profile-python-code-in-excel
 from pyxll import xl_menu, xl_app, xlcAlert
 from win32com.client import constants
 from functools import wraps
+from ctypes import c_int64, byref, windll
 import win32clipboard
 import line_profiler
 import cProfile
 import pstats
 import math
-import time
 
 try:
     from io import StringIO
@@ -24,57 +24,86 @@ _active_cprofiler = None
 _active_line_profiler = None
 
 
+def _median(values):
+    """Return the median of a list of values"""
+    n = len(values)
+    if n < 1:
+        return 0.0
+    if n % 2 == 1:
+        return sorted(values)[n//2]
+    return sum(sorted(values)[n//2-1:n//2+1])/2.0
+
+
 @xl_menu("Time to Calculate", menu="Profiling Tools")
 def time_calculation():
     """Recalculates the selected range and times how long it takes"""
     xl = xl_app()
 
-    # switch Excel to manual calculation
     orig_calc_mode = xl.Calculation
     try:
+        # switch Excel to manual calculation and disable screen updating
         xl.Calculation = constants.xlManual
+        xl.ScreenUpdating = False
 
-        # get the current selection and its formula
+        # int64 variables used for timing
+        start_time = c_int64()
+        end_time = c_int64()
+
+        # Get the current selection and its Calculate method (to avoid including the
+        # method retrieval in the timing)
         selection = xl.Selection
+        selection_Calculate = selection.Calculate
 
         # run the calculation a few times
         timings = []
         for i in range(100):
-            # Start the timer and set the selection formula to itself.
-            # This is a reliable way to force Excel to recalculate the range.
-            start_time = time.clock()
-            selection.Calculate()
-            end_time = time.clock()
-            duration = end_time - start_time
+            # Time calling selection.Calculate() using the Windows high-resolution timers
+            windll.Kernel32.QueryPerformanceCounter(byref(start_time))
+            selection_Calculate()
+            windll.Kernel32.QueryPerformanceCounter(byref(end_time))
+            duration = float(end_time.value - start_time.value)
             timings.append(duration)
-
-        # calculate the mean and stddev
-        mean = math.fsum(timings) / len(timings)
-        stddev = (math.fsum([(x - mean) ** 2 for x in timings]) / len(timings)) ** 0.5
-        best = min(timings)
-        worst = max(timings)
-
-        # copy the results to the clipboard
-        data = [
-            ["mean", mean],
-            ["stddev", stddev],
-            ["best", best],
-            ["worst", worst]
-        ]
-        text = "\n".join(["\t".join(map(str, x)) for x in data])
-        win32clipboard.OpenClipboard()
-        win32clipboard.EmptyClipboard()
-        win32clipboard.SetClipboardText(text)
-        win32clipboard.CloseClipboard()
-
-        # report the results
-        xlcAlert(("%0.2f ms \xb1 %d \xb5s\n"
-                  "Best: %0.2f ms\n"
-                  "Worst: %0.2f ms\n"
-                  "(Copied to clipboard)") % (mean * 1000, stddev * 1000000, best * 1000, worst * 1000))
     finally:
-        # restore the original calculation mode
+        # restore the original calculation mode and screen updating
+        xl.ScreenUpdating = True
         xl.Calculation = orig_calc_mode
+
+    # calculate the mean and stddev
+    mean = math.fsum(timings) / len(timings)
+    median = _median(timings)
+    stddev = (math.fsum([(x - mean) ** 2 for x in timings]) / len(timings)) ** 0.5
+    best = min(timings)
+    worst = max(timings)
+
+    # convert to seconds
+    freq = c_int64()
+    windll.Kernel32.QueryPerformanceFrequency(byref(freq))
+    mean /= freq.value
+    median /= freq.value
+    stddev /= freq.value
+    best /= freq.value
+    worst /= freq.value
+
+    # copy the results to the clipboard
+    data = [
+        ["mean", mean],
+        ["median", median],
+        ["stddev", stddev],
+        ["best", best],
+        ["worst", worst]
+    ]
+    text = "\n".join(["\t".join(map(str, x)) for x in data])
+    win32clipboard.OpenClipboard()
+    win32clipboard.EmptyClipboard()
+    win32clipboard.SetClipboardText(text)
+    win32clipboard.CloseClipboard()
+
+    # report the results
+    xlcAlert(("%0.2f ms \xb1 %d \xb5s\n"
+              "Median: %0.2f ms\n"
+              "Best: %0.2f ms\n"
+              "Worst: %0.2f ms\n"
+              "(Copied to clipboard)") % (mean * 1000, stddev * 1000000, median * 1000, best * 1000, worst * 1000))
 
 
 @xl_menu("Start", menu="Profiling Tools", sub_menu="cProfile")
