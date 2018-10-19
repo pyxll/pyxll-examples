@@ -4,7 +4,7 @@ Start an IPython Qt console connected to the python session running in Excel.
 This doesn't work with an IPython notebook as it's not possible to connect
 a notebook to an existing kernel, the notebook app always creates its own.
 
-This version is intended to work with IPython versions 4.x only.
+This version is intended to work with IPython versions 6.x only.
 
 This example requires sys.executable to be set, and so it's recommended
 that the following is added to the pyxll.cfg file:
@@ -13,13 +13,19 @@ that the following is added to the pyxll.cfg file:
 executable = <path to your python installation>/pythonw.exe
 
 """
-from pyxll import xl_menu
+from pyxll import xl_menu, xl_app, get_type_converter
+import pyxll
 import logging
 import timer
 import sys
 import os
 
 _log = logging.getLogger(__name__)
+
+try:
+    import win32api
+except ImportError:
+    win32api = None
 
 if getattr(sys, "_ipython_kernel_running", None) is None:
     sys._ipython_kernel_running = False
@@ -28,17 +34,57 @@ if getattr(sys, "_ipython_app", None) is None:
     sys._ipython_app = False
 
 
-@xl_menu("IPython")
+@xl_menu("Open QtConsole", menu="IPython")
 def ipython_qtconsole(*args):
     """
     Launches an IPython Qt console
     """
-    # start the IPython kernel
-    app = _start_kernel()
+    try:
+        # start the IPython kernel
+        app = _start_kernel()
 
-    # start a subprocess to run the Qt console
-    # run jupyter in it's own process
-    _launch_qt_console(app.connection_file)
+        # start a subprocess to run the Qt console
+        # run jupyter in it's own process
+        _launch_qt_console(app.connection_file)
+    except:
+        if win32api:
+            win32api.MessageBox(None, "Error starting IPython Qt console")
+        _log.error("Error starting IPython Qt console", exc_info=True)
+
+
+@xl_menu("Selection to IPython", menu="IPython")
+def set_selection_in_ipython(*args):
+    """
+    Gets the value of the selected cell and copies it to
+    the globals dict in the IPython kernel.
+    """
+    try:
+        if not getattr(sys, "_ipython_app", None) or not sys._ipython_kernel_running:
+            raise Exception("IPython kernel not running")
+
+        xl = xl_app(com_package="win32com")
+        selection = xl.Selection
+        if not selection:
+            raise Exception("Nothing selected")
+
+        value = selection.Value
+
+        # convert any cached objects (PyXLL >= 4 only)
+        pyxll_version = int(pyxll.__version__.split(".")[0])
+        if pyxll_version >= 4 and isinstance(value, str):
+            try:
+                to_object = get_type_converter("var", "object")
+                value = to_object(value)
+            except KeyError:
+                pass
+
+        # set the value in the shell's locals
+        sys._ipython_app.shell.user_ns["_"] = value
+        print("\n\n>>> Selected value set as _")
+    except:
+        if win32api:
+            win32api.MessageBox(None, "Error setting selection in Excel")
+        _log.error("Error setting selection in Excel", exc_info=True)
 
 
 def _which(program):
@@ -104,15 +150,25 @@ def _start_kernel():
     # call the API embed function, which will use the monkey-patched method above
     IPython.embed_kernel()
 
-    sys._ipython_app = IPKernelApp.instance()
+    ipy = IPKernelApp.instance()
 
-    # patch ipapp so anything else trying to get a terminal app (e.g. ipdb)
-    # gets our IPKernalApp.
+    # Keep a reference to the kernel even if this module is reloaded
+    sys._ipython_app = ipy
+
+    # patch user_global_ns so that it always references the user_ns dict
+    setattr(ipy.shell.__class__, 'user_global_ns', property(lambda self: self.user_ns))
+
+    # patch ipapp so anything else trying to get a terminal app (e.g. ipdb) gets our IPKernalApp.
     from IPython.terminal.ipapp import TerminalIPythonApp
-    TerminalIPythonApp.instance = lambda: sys._ipython_app
-    __builtins__["get_ipython"] = lambda: sys._ipython_app.shell
+    TerminalIPythonApp.instance = lambda: ipy
+    __builtins__["get_ipython"] = lambda: ipy.shell.__class__
 
-    return sys._ipython_app
+    # Use the inline matplotlib backend
+    mpl = ipy.shell.find_magic("matplotlib")
+    if mpl:
+        mpl("inline")
+
+    return ipy
 
 
 def _launch_qt_console(connection_file):
