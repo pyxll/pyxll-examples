@@ -1,0 +1,3 @@
+python-highcharts
+pywin32
+bs4
