@@ -17,6 +17,7 @@ ribbon xml file to your own ribbon file.
 """
 from pyxll import xl_menu, xl_app, xlcAlert, get_type_converter
 import pyxll
+import win32api
 import threading
 import asyncio
 import logging
@@ -143,10 +144,10 @@ def _start_kernel():
 
     # Wait for the kernel to start, or for an error to occur
     if not event.wait(10):
-        raise Exception("Timed out waiting for the IPython kernel to start")
+        raise RuntimeError("Timed out waiting for the IPython kernel to start")
 
     if not sys._ipython_app:
-        raise Exeption("An error occurred starting the IPython kernel")
+        raise RuntimeError("An error occurred starting the IPython kernel")
 
     return sys._ipython_app
 

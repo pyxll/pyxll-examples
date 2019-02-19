@@ -16,7 +16,7 @@
         <contextMenu idMso="ContextMenuCell">
             <button id="SelectionToIPython"
                     label="Selection To IPython"
-                    onAction="ipython.set_selection_in_ipython">
+                    onAction="ipython.set_selection_in_ipython"/>
         </contextMenu>
     </contextMenus>
 </customUI>
