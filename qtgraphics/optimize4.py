@@ -4,7 +4,7 @@ Optimisation example using scipy.optimize.minimize.
 Extended to ad.
 
 This code accompanies the blog post
-  https://www.pyxll.com/blog/XXXXXXXXXXXXX/
+  https://www.pyxll.com/blog/extending-the-excel-user-interface/
 """
 import sys
 
@@ -15,10 +15,25 @@ import numpy as np
 from scipy.optimize import minimize
 from PyQt5.QtWidgets import QApplication, QMessageBox, QInputDialog, QPushButton
 
-app = QApplication([sys.executable])
+def get_qt_app():
+    """Returns a QApplication instance.
+    Must be called before showing any dialogs.
+    """
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication([sys.executable])
+    return app
 
-@xl_menu("sicpy.optimize")
+@xl_menu("Optimize")
 def optimize4():
+    qt_app = get_qt_app()
+    """Returns a QApplication instance.
+    Must be called before showing any dialogs.
+    """
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication([sys.executable])
+    return app
     xl = xl_app()
     # Get the initial values of the input cells
     in_values = list(xl.Range('Inputs').Value)
@@ -33,21 +48,29 @@ def optimize4():
 
         # run the minimization routine
         xl_obj_func = partial(obj_func, xl)
-        minimize(xl_obj_func, X, method='nelder-mead')
+        result = minimize(xl_obj_func, X, method='nelder-mead')
+        mbox = QMessageBox()
+        mbox.setIcon(QMessageBox.Information)
+        mbox.setText("Optimization results shown below."
+                     "\nMake changes permanent?")
+        mbox.setWindowTitle("Optimization Complete")
+        mbox.setInformativeText("\n".join([
+            "Successful:       %s" % result.success,
+            result.message,
+            "After %d iterations" % result.nit
+            ]))
+        mbox.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+        yes_no = mbox.exec_()
+        if yes_no != QMessageBox.Ok:
+            xl.Range('Inputs').Value = in_values
+        else:
+            xl.Range('Inputs').Value = [(float(x), ) for x in result.x]
 
     finally:
         # restore the original calculation
         # and screen updating mode
         xl.ScreenUpdating = True
         xl.Calculation = orig_calc_mode
-        mbox = QMessageBox()
-        mbox.setIcon(QMessageBox.Information)
-        mbox.setText("Keep these optimization results?")
-        mbox.setWindowTitle("Optimization Complete")
-        mbox.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
-        yes_no = mbox.exec_()
-        if yes_no != QMessageBox.Ok:
-            xl.Range('Inputs').Value = in_values
 
 def obj_func(xl, arg):
     """Wraps a spreadsheet computation as a Python function."""
