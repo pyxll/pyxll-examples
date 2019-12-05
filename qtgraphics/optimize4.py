@@ -9,27 +9,32 @@ This code accompanies the blog post
 import sys
 
 from functools import partial
-from pyxll import xl_macro, xl_app, xl_menu
+from pyxll import xl_app, xl_menu
 from win32com.client import constants
 import numpy as np
 from scipy.optimize import minimize
-from PyQt5.QtWidgets import QApplication, QMessageBox, QInputDialog, QPushButton
+from PyQt5.QtWidgets import QApplication, QMessageBox
+
 
 def get_qt_app():
     """Returns a QApplication instance.
-    Must be called before showing any dialogs.
+
+    MUST be called before showing any dialogs.
     """
     app = QApplication.instance()
     if app is None:
         app = QApplication([sys.executable])
     return app
 
+
 @xl_menu("Optimize")
 def optimize4():
-    qt_app = get_qt_app()
-    """Returns a QApplication instance.
-    Must be called before showing any dialogs.
     """
+    Trigger optimization of a spreadsheet model that
+    takes the named range "Inputs" as inputs and
+    produces output in the named range "Output".
+    """
+    qt_app = get_qt_app()  # pragma noqc
     app = QApplication.instance()
     if app is None:
         app = QApplication([sys.executable])
@@ -71,6 +76,7 @@ def optimize4():
         # and screen updating mode
         xl.ScreenUpdating = True
         xl.Calculation = orig_calc_mode
+
 
 def obj_func(xl, arg):
     """Wraps a spreadsheet computation as a Python function."""
