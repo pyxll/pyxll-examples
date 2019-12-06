@@ -1,6 +1,6 @@
 # Interactive Neural Network Fun in Excel
 
-This code accompanies the medium article https://medium.com/8bad2b3a5d9d.
+This code accompanies the medium article https://towardsdatascience.com/interactive-neural-network-fun-in-excel-8bad2b3a5d9d.
 
 It shows how it is possible to construct neural networks with PyTorch in Excel using PyXLL.
 
