@@ -37,7 +37,7 @@ def get_range(s):
 
 
 @xl_menu("Optimize5")
-def optimize4():
+def optimize5():
     """
     Trigger optimization of a spreadsheet model that
     takes the named range "Inputs" as inputs and
@@ -48,8 +48,9 @@ def optimize4():
     # Get the initial values of the input cells
     msgBox = OpDialog()
     result = msgBox.exec_()
-    if not result:    # user cancelled
+    if not result:  # user cancelled
         return
+
     in_range = get_range(msgBox.in_range.text())
     out_cell = get_range(msgBox.out_cell.text())
     in_values = list(in_range.Value)
@@ -63,8 +64,10 @@ def optimize4():
         xl.ScreenUpdating = False
 
         # run the minimization routine
-        xl_obj_func = partial(obj_func, xl)
+        xl_obj_func = partial(obj_func, xl, in_range, out_cell)
+        print(f"X = {X}")
         result = minimize(xl_obj_func, X, method="nelder-mead")
+        in_range.Value = [(float(x),) for x in result.x]
         xl.ScreenUpdating = True
         mbox = QMessageBox()
         mbox.setIcon(QMessageBox.Information)
@@ -82,24 +85,36 @@ def optimize4():
         mbox.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
         yes_no = mbox.exec_()
         if yes_no != QMessageBox.Ok:
-            xl.Range("Inputs").Value = in_values
+            in_range.Value = in_values
         else:
-            xl.Range("Inputs").Value = [(float(x),) for x in result.x]
+            in_range.Value = [(float(x),) for x in result.x]
 
     finally:
         # restore the original calculation
         # and screen updating mode
+        xl.ScreenUpdating = True
         xl.Calculation = orig_calc_mode
 
 
-def obj_func(xl, arg):
+def obj_func(xl, in_range, out_cell, arg):
     """Wraps a spreadsheet computation as a Python function."""
     # Copy argument values to input range
-    xl.Range("Inputs").Value = [(float(x),) for x in arg]
+    try:
+
+        in_range.Value = [(float(x),) for x in arg]
+    except:
+        print(arg)
+        raise
 
     # Calculate after changing the inputs
     xl.Calculate()
 
     # Return the value of the output cell
-    result = xl.Range("Output").Value
+    try:
+
+        result = float(out_cell.Value)
+    except:
+        print(out_cell.Value)
+        raise
+
     return result
