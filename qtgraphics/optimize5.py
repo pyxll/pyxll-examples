@@ -99,22 +99,11 @@ def optimize5():
 def obj_func(xl, in_range, out_cell, arg):
     """Wraps a spreadsheet computation as a Python function."""
     # Copy argument values to input range
-    try:
-
-        in_range.Value = [(float(x),) for x in arg]
-    except:
-        print(arg)
-        raise
+    in_range.Value = [(float(x),) for x in arg]
 
     # Calculate after changing the inputs
     xl.Calculate()
 
     # Return the value of the output cell
-    try:
-
-        result = float(out_cell.Value)
-    except:
-        print(out_cell.Value)
-        raise
-
+    result = float(out_cell.Value)
     return result
