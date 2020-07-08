@@ -6,7 +6,7 @@ from https://github.com/facebookresearch/ParlAI.
 Check that ParlAI is working correctly by running the following script
 
 ```bash
-python parlai/scripts/safe_interactive.py -t blended_skill_talk -mf zoo:blender/blender_90M/model
+python -Xutf8 parlai/scripts/safe_interactive.py -t blended_skill_talk -mf zoo:blender/blender_90M/model
 ```
 
 In the example `parlai_excel.py` There are two functions:
