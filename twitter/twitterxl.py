@@ -51,7 +51,7 @@ class TwitterListener(StreamListener):
         auth = OAuthHandler(consumer_key, consumer_secret)
         auth.set_access_token(access_token, access_token_secret)
         self.__stream = Stream(auth, listener=self)
-        self.__stream.filter(track=phrases, async=True)
+        self.__stream.filter(track=phrases, is_async=True)
         self.__connected = True
 
     @property
