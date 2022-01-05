@@ -68,7 +68,7 @@ def df_filter(df, filter_values):
         elif row_op == "<":
             row_mask = df[col] < value
         else:
-            raise ValueError(f"Unexpected operator '{op}'")
+            raise ValueError(f"Unexpected operator '{row_op}'")
 
         # If it's the first row then there's nothing to combine it with
         if mask is None:
@@ -117,3 +117,40 @@ def df_pivot_table(df, columns, agg_funcs, transpose=False):
         df = df.transpose()
 
     return df
+
+
+# Plot the population density on a map using plotly.
+# This will only work if you have plotly and kaleido installed.
+# See https://www.pyxll.com/docs/userguide/plotting/plotly.html
+@xl_func
+def plot_density_mapbox(df,
+                        enabled=True,
+                        lat_center=40,
+                        lng_center=-95,
+                        zoom=3,
+                        radius=25,
+                        lat="lat",
+                        lng="lng",
+                        z="population",
+                        mapbox_style="stamen-terrain"):
+    """Plots a density mapbox using Plotly Express."""
+    if not enabled:
+        return "[PLOTTING DISABLED]"
+
+    # Use plotly express to plot the mapbox
+    import plotly.express as px
+
+    fig = px.density_mapbox(df,
+                            lat=lat,
+                            lon=lng,
+                            z=z,
+                            radius=radius,
+                            center=dict(lat=lat_center, lon=lng_center),
+                            zoom=zoom,
+                            mapbox_style=mapbox_style)
+
+    # Display the figure in Excel (requires kaleido)
+    from pyxll import plot
+    plot(fig)
+
+    return "[OK]"
