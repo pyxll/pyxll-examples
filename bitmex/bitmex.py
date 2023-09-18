@@ -26,7 +26,7 @@ class BitMex:
         self.__running_task = None
         self.__subscriptions = {}
         self.__data = {}
-        self.__lock = asyncio.Lock(loop=loop)
+        self.__lock = asyncio.Lock()
 
     async def __connect(self):
         # Connect to the websocket API and start the __run coroutine
