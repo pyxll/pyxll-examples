@@ -164,7 +164,5 @@ if __name__ == "__main__":
 
         print("DONE!")
 
-    # Run the 'main' function in an asyncio event loop
-    loop = asyncio.get_event_loop()
-    loop.create_task(main())
-    loop.run_forever()
+    # Run the 'main' function as an asynchronous coroutine
+    asyncio.run(main())
