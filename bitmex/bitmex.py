@@ -20,7 +20,7 @@ class BitMex:
 
     URI = "wss://www.bitmex.com/realtime"
 
-    def __init__(self, loop=None):
+    def __init__(self):
         self.__websocket = None
         self.__running = False
         self.__running_task = None
@@ -32,7 +32,6 @@ class BitMex:
         # Connect to the websocket API and start the __run coroutine
         self.__running = True
         self.__websocket = await websockets.connect(self.URI)
-        self.__connecting_task = None
         self.__running_task = asyncio.create_task(self.__run())
 
     async def __disconnect(self):
@@ -64,7 +63,8 @@ class BitMex:
 
                     # Notify the subscribers with the updated field
                     for subscriber in subscribers.get(field, []):
-                        tasks.append(subscriber(symbol, field, value, timestamp))
+                        coro = subscriber(symbol, field, value, timestamp)
+                        tasks.append(asyncio.create_task(coro))
 
                 # await all the tasks from the subscribers
                 if tasks:
@@ -121,7 +121,7 @@ class BitMexRTD(RTD):
     """
 
     # Use a single BitMex object for all RTD functions
-    _bitmex = BitMex(get_event_loop())
+    __bitmex_client = None
 
     def __init__(self, symbol, field):
         super().__init__(value="Waiting...")
@@ -130,11 +130,21 @@ class BitMexRTD(RTD):
 
     async def connect(self):
         # Subscribe to BitMix updates when Excel connects to the RTD object
-        await self._bitmex.subscribe(self.__symbol, self.__field, self.__update)
+        bitmex = await self.__get_bitmex_client()
+        await bitmex.subscribe(self.__symbol, self.__field, self.__update)
 
     async def disconnect(self):
         # Unsubscribe to BitMix updates when Excel disconnects from the RTD object
-        await self._bitmex.unsubscribe(self.__symbol, self.__field, self.__update)
+        bitmex = await self.__get_bitmex_client()
+        await bitmex.unsubscribe(self.__symbol, self.__field, self.__update)
+
+    @classmethod
+    async def __get_bitmex_client(cls):
+        # This is async as the BitMex object should be created while the
+        # asyncio event loop is active.
+        if cls.__bitmex_client is None:
+            cls.__bitmex_client = BitMex()
+        return cls.__bitmex_client
 
     async def __update(self, symbol, field, value, timestamp):
         # Update the value in Excel
@@ -164,5 +174,5 @@ if __name__ == "__main__":
 
         print("DONE!")
 
-    # Run the 'main' function as an asynchronous coroutine
+    # Run the async main function
     asyncio.run(main())
