@@ -1,0 +1,6 @@
+pyxll
+pertdist
+pywin32
+seaborn
+matplotlib
+numpy
