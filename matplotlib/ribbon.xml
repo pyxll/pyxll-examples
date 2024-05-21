@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui">
+    <ribbon>
+    </ribbon>
+    <contextMenus>
+        <contextMenu idMso="ContextMenuCell">
+            <button id="MplShowPlot" label="Show Matplotlib Figure"
+                onAction="interactiveplot.show_matplotlib_ctp"/>
+        </contextMenu>
+   </contextMenus>
+</customUI>
