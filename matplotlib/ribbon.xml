@@ -5,7 +5,7 @@
     <contextMenus>
         <contextMenu idMso="ContextMenuCell">
             <button id="MplShowPlot" label="Show Matplotlib Figure"
-                onAction="interactiveplot.show_matplotlib_ctp"/>
+                onAction="interactiveplot.show_selected_matplotlib_ctp"/>
         </contextMenu>
    </contextMenus>
 </customUI>
